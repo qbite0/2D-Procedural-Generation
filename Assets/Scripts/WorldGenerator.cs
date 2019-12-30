@@ -1,8 +1,10 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
+using UnityEngine.Events;
 
 /**
  * =======================================
- * Simple procedural map generator v0.0.1...
+ * Simple procedural map generator v0.1.2...
  * Made with ♥ By qBite 2019
  * 
  * =======================================
@@ -11,44 +13,115 @@
  * =======================================
  **/
 
+[DisallowMultipleComponent]
 public class WorldGenerator : MonoBehaviour
 {
+    public enum GenerationType {
+        Box = 0,
+        Circle = 1
+    };
+
+    public GenerationType Type = GenerationType.Circle;
+
     [Header("Area")]
-    public Vector2 from;
-    public Vector2 to;
+    public Bounds Area = new Bounds(Vector2.zero, Vector2.one);
+
+    [Space]
+    public float Distance = 1f;
+
+    [Header("Box")]
+    public Vector2 BoxSize = Vector2.one;
 
     [Header("Circle")]
-    public float distance;
-    public float radius;
+    public float CircleRadius = 0.5f;
 
     [Space]
     public GameObject[] objects;
 
-    private float curX;
-    private float curY;
+    [Header("Debug")]
+    public bool Draw = true;
 
-    GameObject GetRandomObject() {
+    [Header("Events")]
+    public UnityEvent OnGenerationEnd;
+
+    private Coroutine coroutine;
+
+    public GameObject GetRandomObject() {
         return objects[Mathf.RoundToInt(Random.Range(0, objects.Length))];
     }
 
-    Vector2 GetRandomPoint(float x, float y) {
-        return new Vector2(x, y) + Random.insideUnitCircle * radius;
+    public static Vector2 GetRandomCirclePoint(float radius) {
+        return Random.insideUnitCircle * radius;
     }
 
-    void Start()
+    public static Vector2 GetRandomBoxPoint(Vector2 size)
     {
-        curX = from.x;
-        curY = from.y;
+        return new Vector2(Random.Range(-size.x, size.x), Random.Range(-size.y, size.y)) / 2;
+    }
 
-        while (curY < to.y)
+    public void Generate() {
+        if (coroutine == null)
         {
-            while (curX < to.x)
+            switch (Type)
             {
-                Instantiate(GetRandomObject(), GetRandomPoint(curX, curY), Quaternion.identity);
-                curX += distance;
+                case GenerationType.Circle:
+                    coroutine = StartCoroutine(Circle());
+                    break;
+                case GenerationType.Box:
+                    coroutine = StartCoroutine(Box());
+                    break;
             }
-            curX = from.x;
-            curY += distance;
+        } else
+        {
+            Debug.LogError("Generation already running!");
         }
+    }
+
+    public void StopGenerate() {
+        if (coroutine != null)
+        {
+            StopCoroutine(coroutine);
+            coroutine = null;
+        }
+    }
+
+    private IEnumerator Circle()
+    {
+        Vector2 Current = (Vector2)Area.min + (Vector2.one * CircleRadius);
+
+        while (Current.y < Area.max.y)
+        {
+            while (Current.x < Area.max.x)
+            {
+                Instantiate(GetRandomObject(), Current + GetRandomCirclePoint(CircleRadius), Quaternion.identity);
+                Current.x += (CircleRadius * 2) + Distance;
+                yield return null;
+            }
+            Current.x = Area.min.x + CircleRadius;
+            Current.y += (CircleRadius * 2) + Distance;
+        }
+
+        coroutine = null;
+        OnGenerationEnd.Invoke();
+    }
+
+    private IEnumerator Box()
+    {
+        Vector2 Current = (Vector2)Area.min + (BoxSize / 2);
+
+        while (Current.y < Area.max.y)
+        {
+            while (Current.x < Area.max.x)
+            {
+                Instantiate(GetRandomObject(), Current + GetRandomBoxPoint(BoxSize), Quaternion.identity);
+                Current.x += BoxSize.x + Distance;
+                yield return null;
+            }
+            Current.x = Area.min.x + (BoxSize.x / 2);
+            Current.y += BoxSize.y + Distance;
+        }
+
+        coroutine = null;
+        OnGenerationEnd.Invoke();
     }
 }
