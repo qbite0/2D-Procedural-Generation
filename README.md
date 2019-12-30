@@ -1,7 +1,7 @@
 # 2D Procedural Generation
 Use for procedural generation of plants and buildings.
 
-Version: 0.0.1
+Version: 0.1.2
 ---
 
 ## Features
